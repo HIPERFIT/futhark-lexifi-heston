@@ -248,14 +248,14 @@ fun price_european_calls
          for j < n-1 do (let xj = x[j]
                          let wj = w[j]
                          let x = c64.mk_re xj
-                         let mk_w_and_coeff_k (l: i32) =
+                         let mk_w_and_coeff_k (p: i32) =
                            (if ap1
                             then (let x_minus_half_i = x -! c64.mk_im 0.5
                                   in (wj / (0.25 + xj * xj),
-                                      (psi_bs day_count_fractions[l] x_minus_half_i -! psi_h day_count_fractions[l] x_minus_half_i)))
+                                      (psi_bs day_count_fractions[p] x_minus_half_i -! psi_h day_count_fractions[p] x_minus_half_i)))
                             else (let x_minus_i = x -! i
                                   in (wj,
-                                      (psi_bs day_count_fractions[l] x_minus_i -! psi_h day_count_fractions[l] x_minus_i) /!
+                                      (psi_bs day_count_fractions[p] x_minus_i -! psi_h day_count_fractions[p] x_minus_i) /!
                                       (x *! x_minus_i))))
                          let (ws, coeff_ks) = unzip (map mk_w_and_coeff_k (iota nmaturities))
                          in map (\resk minus_ikk p ->
@@ -264,7 +264,7 @@ fun price_european_calls
                                  in resk + w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
                                 res minus_ik (iota nstrikes))
        in map (\moneyness resk p ->
-               let day_count_fraction = day_count_fractions[p]
+               let day_count_fraction = day_count_fractions[maturity_for_quote[p]]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
                let bs = bs_control moneyness sigma_sqrtt
                in if moneyness * f0 <= 0.0

@@ -9,6 +9,7 @@ module type date = {
   val days_between: date -> date -> f64
   val diff_dates: date -> date -> f64
 
+  
   val triple_of_date: date -> (i32,i32,i32)
   val date_of_triple: (i32,i32,i32) -> date
 
@@ -91,9 +92,9 @@ open ({
   fun sub_days (t1: date) (displ: i32) =
     date_of_int(int_of_date t1 - displ * minutes_in_day)
   fun days_between (t1: date) (t2: date) =
-    (f64 (int_of_date t1 - int_of_date t2)) * inv_fminutes_in_day
+    (f64 (int_of_date t2 - int_of_date t1)) * inv_fminutes_in_day
   fun diff_dates (t1: date) (t2: date) =
-    (days_between t2 t1) / 365.0
+    (days_between t1 t2) / 365.0
 
   fun same_date (x: date) (y: date) = x == y
 

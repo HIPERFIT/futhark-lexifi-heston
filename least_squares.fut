@@ -2,20 +2,24 @@ import "futlib/math"
 
 import "rand"
 
-module type norm = {
-  val norm: f64 -> f64 -> f64 -> f64
+module type distance = {
+  val distance: []f64 -> []f64 -> f64
 }
 
-module absolute_norm: norm = {
-  fun norm (acc: f64) (price: f64) (quote: f64) =
-    let rel = (price - quote) / quote
-    in acc + rel * rel
+module absolute_distance: distance = {
+  fun distance (quotes: [m]f64) (prices: [m]f64): f64 =
+    let norm (price: f64) (quote: f64) =
+      (let rel = (price - quote) / quote
+       in rel * rel)
+    in reduce (+) 0.0 (map norm quotes prices)
 }
 
-module relative_norm: norm = {
-  fun norm (acc: f64) (price: f64) (quote: f64) =
-    let dif = price - quote
-    in acc + dif * dif
+module relative_distance: distance = {
+  fun distance (quotes: [m]f64) (prices: [m]f64): f64 =
+    let norm (price: f64) (quote: f64) =
+      (let dif = price - quote
+       in dif * dif)
+    in reduce (+) 0.0 (map norm quotes prices)
 }
 
 module type pricer = {
@@ -24,7 +28,7 @@ module type pricer = {
   val parameters_of_vector: []f64 -> parameters
   val pricer: pricer_ctx -> parameters -> []f64
 
-  include norm
+  include distance
 }
 
 type range = {lower_bound: f64,
@@ -36,6 +40,12 @@ type optimization_variable = ( bool -- fixed?
                              , f64 -- value if fixed
                              , range -- range if not fixed
                              )
+
+fun fixed_value (v: f64): optimization_variable =
+  (true, v, {lower_bound=0.0, upper_bound=0.0, initial_value=0.0})
+
+fun optimize_value (r: range): optimization_variable =
+  (false, 0.0, r)
 
 module least_squares(P: pricer) = {
 
@@ -57,10 +67,6 @@ module least_squares(P: pricer) = {
 
   type result = {x0: []f64, f: f64, nb_feval: i32, status: status}
 
-  fun distance (quotes: [m]f64) (prices: [m]f64): f64 =
-    loop (acc = 0.0) = for i < m do P.norm acc prices[i] quotes[i]
-    in acc
-
   fun parameters_of_active_vars (vars_to_free_vars: [num_variables]i32)
                                 (variables: [num_variables]optimization_variable)
                                 (xs: [num_active]f64) =
@@ -79,10 +85,9 @@ module least_squares(P: pricer) = {
   -- The optimisation function.  This could be factored out into a
   -- function argument (as a parametric module).
     let f (x: []f64): f64 =
-      distance quotes (P.pricer pricer_ctx (parameters_of_active_vars vars_to_free_vars variables x))
+      P.distance quotes (P.pricer pricer_ctx (parameters_of_active_vars vars_to_free_vars variables x))
 
     let rng = random_f64.rng_from_seed 0x123
-    let rand = 0.123 -- FIXME: everywhere this is used, use a random
     -- number instead.
     let rngs = random_f64.split_rng np rng
     let (rngs, rss) = unzip (map (\rng -> random_f64.nrand rng (0.0, 1.0) n) rngs)
@@ -90,15 +95,12 @@ module least_squares(P: pricer) = {
     let x = (let init_j (j: i32) (r: f64) = (let blo = lower_bounds[j]
                                              let db = upper_bounds[j] - blo
                                              in blo + db * r)
-             let init_i (i: i32) (rs: [n]f64) = map init_j (iota n) rs
-             in map init_i (iota np) rss)
+             let init_i (rs: [n]f64) = map init_j (iota n) rs
+             in map init_i rss)
     let fx = map f x
     let (fx0, best_idx) =
       reduce (\(a,a_i) (b,b_i) -> if a < b then (a,a_i) else (b,b_i))
              (f64.inf, 0) (zip (map f x) (iota np))
-    let x0 = copy x[best_idx]
-
-    let ncalls = 0
 
     let mutation (difw: f64) (best_idx: i32) (x: [np][n]f64)
                  (rng: random_f64.rng) (i :i32) (x_i: [n]f64) =
@@ -109,7 +111,7 @@ module least_squares(P: pricer) = {
        let drawn = 0
        loop ((rng,indices,drawn)) = while drawn < to_draw do
          (let (rng, j) = random_i32.rand rng (0,np)
-          loop (ok = true) = for l < drawn do if indices[l] == j then false else true
+          loop (ok = true) = for l < drawn do ok && indices[l] != j
           in if ok
              then let indices[drawn] = j in (rng, indices, drawn+1)
              else (rng, indices, drawn))
@@ -138,20 +140,21 @@ module least_squares(P: pricer) = {
                 (fx0, best_idx) (zip f_v (iota np))
        in (fx0', best_idx', fx', x'))
 
-    -- FIXME: Add a termination criterion based on number of calls to
-    -- 'f' compared with 'maxf'.
+    -- We are not counting the numer of invocations of the objective
+    -- function quite as in LexiFi's code (they use a closure that
+    -- increments a counter), but we should be close.
     loop ((rng, ncalls, nb_it,
            (fx0, best_idx, fx, x)) =
-          (rng, 0, maxit,
-           (fx0, best_idx, fx, x))) = while nb_it > 0 do
+          (rng, np*2, maxit,
+           (fx0, best_idx, fx, x))) = while nb_it > 0 && maxf > ncalls && fx0 > target do
       (let (rng,differential_weight) = random_f64.rand rng (0.5, 1.0)
        let rngs = random_f64.split_rng np rng
        let (rngs, v) = unzip (map (mutation differential_weight best_idx x) rngs (iota np) x)
        let rng = random_f64.join_rng rngs
        let (fx0, best_idx, fx, x) = recombination fx0 best_idx fx x v
-       in (rng, ncalls, nb_it - 1,
+       in (rng, ncalls + np, nb_it - 1,
            (fx0, best_idx, fx, x)))
-    let x0 = copy x[best_idx]
+    let x0 = x[best_idx]
     let status = if      fx0 <= target then target_reached
                  else if maxf < ncalls then maxf_reached
                  else if nb_it == 0    then maxit_reached
@@ -172,23 +175,23 @@ module least_squares(P: pricer) = {
     let num_free_vars = (shape free_vars)[0]
     let vars_to_free_vars = write free_vars_to_vars (iota num_free_vars)
                                   (replicate num_variables (-1))
-    let strict_subset = num_free_vars < num_variables
     let (x, lower_bounds, upper_bounds) =
       unzip (map (\(_, _, {initial_value, lower_bound, upper_bound}) ->
                   (initial_value, lower_bound, upper_bound)) free_vars)
 
-    let prices = replicate m 0.0
-
     let rms_of_error (err: f64) = f64.sqrt(err * (10000.0 / f64 m))
 
-    let x = if max_global > 0
-            then #x0 (optimize pricer_ctx quotes vars_to_free_vars variables
-                      (default_parameters num_free_vars) lower_bounds upper_bounds
-                      {maxit = 0x7FFFFFFF, maxf = max_global, target = 0.0})
-            else x
+    let x =
+      if max_global > 0
+      then #x0 (optimize pricer_ctx quotes vars_to_free_vars variables
+                (default_parameters num_free_vars) lower_bounds upper_bounds
+                {maxit = 0x7FFFFFFF, maxf = max_global, target = 0.0})
+      else x
+
+    let prices = P.pricer pricer_ctx (parameters_of_active_vars vars_to_free_vars variables x)
 
     in {parameters = parameters_of_active_vars vars_to_free_vars variables x,
-        root_mean_squared_error = rms_of_error (distance quotes prices),
+        root_mean_squared_error = rms_of_error (P.distance quotes prices),
         quoted_prices = quotes,
         calibrated_prices = prices}
 }

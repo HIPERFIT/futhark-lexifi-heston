@@ -3,7 +3,7 @@ import "date"
 import "price_european_calls"
 
 type calibration_input = { today: date
-                         , quotes: [](date, f64, f64)
+                         , quotes: []{maturity: date, strike: f64, quote: f64}
                          , max_global: i32
                          , strike_weight_bandwidth: f64
                          , maturity_weight_x0: f64
@@ -13,8 +13,8 @@ type calibration_input = { today: date
 
 module heston_least_squares = least_squares {
   type parameters = heston_parameters
-  type pricer_ctx = {maturities: []{day_count_fraction: f64, vega: f64, weight: f64},
-                     quotes: []{maturity: i32, strike: f64},
+  type pricer_ctx = {day_count_fractions: []f64,
+                     quotes: []{maturity: i32, strike: f64, vega: f64, weight: f64},
                      integral_iterations: nb_points
                      }
 
@@ -25,32 +25,32 @@ module heston_least_squares = least_squares {
     , mean_reversion = x[3]
     , variance_volatility = x[4] }
 
-  fun pricer ({maturities, quotes, integral_iterations}: pricer_ctx) (heston_parameters: parameters) =
-    let day_count_fractions = map (\q -> #day_count_fraction q) maturities
+  fun pricer ({day_count_fractions, quotes, integral_iterations}: pricer_ctx) (heston_parameters: parameters) =
     let prices = price_european_calls
                  (gauss_laguerre_coefficients integral_iterations)
                  false 1.0 1.0 1.0
                  heston_parameters
-                 day_count_fractions quotes
-    in prices
+                 day_count_fractions
+                 (map (\q -> {maturity=#maturity q, strike=#strike q}) quotes)
+    in map (\q p -> #weight q * p / #vega q) quotes prices
 
-  open relative_norm
+  open relative_distance
 }
 
 fun distinct_maturities (dates: [n]date): ([]date, [n]i32) =
   let switched (x: date) (i: i32) = i == 0 || !(same_date x dates[i-1])
   let switches = map switched dates (iota n)
   in (#2 (unzip (filter (\x -> #1 x) (zip switches dates))),
-      scan (+) 0 (map i32 switches))
+      map (-1) (scan (+) 0 (map i32 switches)))
 
-entry run_calibration({today,
-                       quotes,
-                       max_global,
-                       strike_weight_bandwidth,
-                       maturity_weight_x0,
-                       maturity_weight_gamma,
-                       integral_iterations,
-                       variables}: calibration_input): heston_least_squares.calibration_result =
+fun run_calibration({today,
+                     quotes,
+                     max_global,
+                     strike_weight_bandwidth,
+                     maturity_weight_x0,
+                     maturity_weight_gamma,
+                     integral_iterations,
+                     variables}: calibration_input): heston_least_squares.calibration_result =
   let price_and_vega_of_quote (strike: f64) (maturity: date) (quote: f64) =
     (let (price, vega) = bs_call true today 1. strike maturity quote
      in (price, f64.max 1e-1 vega))
@@ -62,18 +62,66 @@ entry run_calibration({today,
     maturity_weight maturity_weight_x0 maturity_weight_gamma (sub_act_365 mat today) *
     strike_weight strike_weight_bandwidth strike
 
-  let quotes_for_optimization =
-    map (\(maturity, strike, quote) ->
-         let (p, v) = price_and_vega_of_quote strike maturity quote
-         in weight strike maturity * p / v)
-        quotes
 
-  let (maturities, quotes_to_maturities) =
-    distinct_maturities (map (\(m,_,_) -> m) quotes)
+  let (maturity_dates, quotes_to_maturities) =
+    distinct_maturities (map (\q -> #maturity q) quotes)
+  let weights = map (\{maturity, strike, quote=_} -> weight strike maturity) quotes
+  let prices_and_vegas = map (\{maturity, strike, quote} ->
+                              price_and_vega_of_quote strike maturity quote) quotes
+  let quotes_for_optimization = map (\(p,v) w -> w * p / v) prices_and_vegas weights
+  let quotes_for_ctx =
+    map (\{maturity=_, strike, quote=_} w (_,v) i -> { maturity = i
+                                                     , strike = strike
+                                                     , weight = w
+                                                     , vega = v})
+        quotes weights prices_and_vegas quotes_to_maturities
 
-  let ctx = { maturities = maturities
-            , quotes = quotes
-            , integral_iterations = integral_iterations
-              }
+  let ctx = { day_count_fractions = map (\m -> sub_act_365 m today) maturity_dates
+            , quotes = quotes_for_ctx
+            , integral_iterations = integral_iterations }
 
   in heston_least_squares.least_squares ctx max_global variables quotes_for_optimization
+
+fun date_of_int(x: i32) =
+  let d = x%100
+  let m = (x/100)%100
+  let y = x/10000
+  in date_of_triple (y, m, d)
+
+val default_variables: []optimization_variable =
+    [optimize_value {lower_bound =  1e-6, initial_value = 4e-2, upper_bound = 1.},
+     optimize_value {lower_bound =  1e-6, initial_value = 4e-2, upper_bound = 1.},
+     optimize_value {lower_bound = -1.  , initial_value = -0.5, upper_bound = 0.},
+     optimize_value {lower_bound =  1e-4, initial_value = 1e-2, upper_bound = 4.},
+     optimize_value {lower_bound =  1e-4, initial_value = 0.4, upper_bound = 2.}
+    ]
+
+fun main (max_global: i32)
+         (nb_points: i32)
+         (today: i32)
+         (quotes_maturity: [num_quotes]i32)
+         (quotes_strike: [num_quotes]f64)
+         (quotes_quote: [num_quotes]f64) =
+  let result =
+    run_calibration { today = date_of_int today
+                    , quotes = map (\m k q -> {maturity = date_of_int m, strike = k, quote = q})
+                      quotes_maturity quotes_strike quotes_quote
+                    , max_global = max_global
+                    , strike_weight_bandwidth = 0.0
+                    , maturity_weight_x0 = 0.0
+                    , maturity_weight_gamma = 1.0
+                    , integral_iterations = if nb_points == 10 then ten else twenty
+                    , variables = default_variables
+                      }
+  let { initial_variance,
+        long_term_variance,
+        correlation,
+        mean_reversion,
+        variance_volatility } = #parameters result
+  in (#root_mean_squared_error result,
+      initial_variance,
+      long_term_variance,
+      mean_reversion,
+      variance_volatility,
+      correlation
+      )
