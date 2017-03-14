@@ -243,28 +243,28 @@ fun price_european_calls
        let moneyness = map (/f0) strikes
        let minus_ik = map (\k -> c64.mk_im (- f64.log k)) moneyness
 
-       -- I think this loop could be rewritten as mapreduce.
-       loop (res = replicate nstrikes 0f64) =
-         for j < n-1 do (let xj = x[j]
-                         let wj = w[j]
-                         let x = c64.mk_re xj
-                         let mk_w_and_coeff_k (p: i32) =
-                           (if ap1
-                            then (let x_minus_half_i = x -! c64.mk_im 0.5
-                                  in (wj / (0.25 + xj * xj),
-                                      (psi_bs day_count_fractions[p] x_minus_half_i -! psi_h day_count_fractions[p] x_minus_half_i)))
-                            else (let x_minus_i = x -! i
-                                  in (wj,
-                                      (psi_bs day_count_fractions[p] x_minus_i -! psi_h day_count_fractions[p] x_minus_i) /!
-                                      (x *! x_minus_i))))
-                         let (ws, coeff_ks) = unzip (map mk_w_and_coeff_k (iota nmaturities))
-                         in map (\resk minus_ikk p ->
-                                 let w = ws[maturity_for_quote[p]]
-                                 let coeff_k = coeff_ks[maturity_for_quote[p]]
-                                 in resk + w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
-                                res minus_ik (iota nstrikes))
-       in map (\moneyness resk p ->
-               let day_count_fraction = day_count_fractions[maturity_for_quote[p]]
+       let iter (j: i32) =
+         (let xj = x[j]
+          let wj = w[j]
+          let x = c64.mk_re xj
+          let mk_w_and_coeff_k (day_count_fraction: f64) =
+            (if ap1
+             then (let x_minus_half_i = x -! c64.mk_im 0.5
+                   in (wj / (0.25 + xj * xj),
+                       (psi_bs day_count_fraction x_minus_half_i -! psi_h day_count_fraction x_minus_half_i)))
+             else (let x_minus_i = x -! i
+                   in (wj,
+                       (psi_bs day_count_fraction x_minus_i -! psi_h day_count_fraction x_minus_i) /!
+                       (x *! x_minus_i))))
+          let (ws, coeff_ks) = unzip (map mk_w_and_coeff_k day_count_fractions)
+          in map (\minus_ikk m ->
+                  let w = unsafe ws[m]
+                  let coeff_k = unsafe coeff_ks[m]
+                  in w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
+                 minus_ik maturity_for_quote)
+       let res = map (\r -> reduce (+) 0.0 r) (transpose (map iter (iota n)))
+       in map (\moneyness resk m ->
+               let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
                let bs = bs_control moneyness sigma_sqrtt
                in if moneyness * f0 <= 0.0
@@ -276,7 +276,7 @@ fun price_european_calls
                   else (let lb = f64.max 0.0 (1.0 - moneyness)
                         let scale = if ap1 then f64.sqrt moneyness else 1.0
                         in f0 * df * f64.max lb (f64.min 1.0 (scale * resk / f64.pi + bs))))
-              moneyness res (iota nstrikes)
+              moneyness res maturity_for_quote
 
 fun gauss (x: f64) = f64.exp(-0.5 * x * x) / f64.sqrt(2. * f64.pi)
 

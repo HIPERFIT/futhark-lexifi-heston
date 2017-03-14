@@ -111,14 +111,14 @@ module least_squares(P: pricer) = {
        let drawn = 0
        loop ((rng,indices,drawn)) = while drawn < to_draw do
          (let (rng, j) = random_i32.rand rng (0,np)
-          loop (ok = true) = for l < drawn do ok && indices[l] != j
+          loop (ok = true) = for l < drawn do ok && unsafe indices[l] != j
           in if ok
-             then let indices[drawn] = j in (rng, indices, drawn+1)
+             then unsafe let indices[drawn] = j in (rng, indices, drawn+1)
              else (rng, indices, drawn))
        let (rng,r) = random_f64.rand rng (0.0, 1.0)
-       let x_r1 = if r <= 0.5 then x[best_idx] else x[indices[0]]
-       let x_r2 = x[indices[1]]
-       let x_r3 = x[indices[2]]
+       let x_r1 = unsafe if r <= 0.5 then x[best_idx] else unsafe x[indices[0]]
+       let x_r2 = unsafe x[indices[1]]
+       let x_r3 = unsafe x[indices[2]]
        let (rng,j0) = random_i32.rand rng (0,n)
        let (rng,rs) = random_f64.nrand rng (0.0, 1.0) n
        let auxs = map (+) x_r1 (map (difw*) (map (-) x_r2 x_r3))

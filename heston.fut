@@ -38,7 +38,7 @@ module heston_least_squares = least_squares {
 }
 
 fun distinct_maturities (dates: [n]date): ([]date, [n]i32) =
-  let switched (x: date) (i: i32) = i == 0 || !(same_date x dates[i-1])
+  let switched (x: date) (i: i32) = i == 0 || unsafe !(same_date x dates[i-1])
   let switches = map switched dates (iota n)
   in (#2 (unzip (filter (\x -> #1 x) (zip switches dates))),
       map (-1) (scan (+) 0 (map i32 switches)))
