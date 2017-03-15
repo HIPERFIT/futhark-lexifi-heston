@@ -99,9 +99,13 @@ module least_squares(P: pricer) = {
              let init_i (rs: [n]f64) = map init_j lower_bounds upper_bounds rs
              in map init_i rss)
     let fx = map f x
+    let min_and_idx (a:f64,a_i:i32) (b:f64,b_i:i32) =
+      if      a < b     then (a,a_i)
+      else if b < a     then (b,b_i)
+      else if a_i < b_i then (a, a_i)
+      else                   (b, b_i)
     let (fx0, best_idx) =
-      reduce (\(a,a_i) (b,b_i) -> if a < b then (a,a_i) else (b,b_i))
-             (f64.inf, 0) (zip fx (iota np))
+      reduceComm min_and_idx (f64.inf, 0) (zip fx (iota np))
 
     let mutation (difw: f64) (best_idx: i32) (x: [np][n]f64)
                  (rng: random_f64.rng) (i :i32) (x_i: [n]f64) =
@@ -137,8 +141,7 @@ module least_squares(P: pricer) = {
        let x' = map (\f fx_i x_i v_i -> if f < fx_i then v_i else x_i)
                     f_v fx x v
        let (fx0', best_idx') =
-         reduce (\(a,a_i) (b,b_i) -> if a < b then (a,a_i) else (b,b_i))
-                (fx0, best_idx) (zip f_v (iota np))
+         reduceComm min_and_idx (fx0, best_idx) (zip f_v (iota np))
        in (fx0', best_idx', fx', x'))
 
     -- We are not counting the numer of invocations of the objective
