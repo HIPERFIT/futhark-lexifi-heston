@@ -70,9 +70,9 @@ module least_squares(P: pricer) = {
   fun parameters_of_active_vars (vars_to_free_vars: [num_variables]i32)
                                 (variables: [num_variables]optimization_variable)
                                 (xs: [num_active]f64) =
-    P.parameters_of_vector (map (\i (fixed,x,_) ->
-                                 if fixed then x else unsafe xs[vars_to_free_vars[i]])
-                            (iota num_active) variables)
+    P.parameters_of_vector (map (\fv (fixed,x,_) ->
+                                 if fixed then x else unsafe xs[fv])
+                            vars_to_free_vars variables)
 
   fun optimize (pricer_ctx: P.pricer_ctx)
                (quotes: [m]f64)
@@ -92,15 +92,16 @@ module least_squares(P: pricer) = {
     let rngs = random_f64.split_rng np rng
     let (rngs, rss) = unzip (map (\rng -> random_f64.nrand rng (0.0, 1.0) n) rngs)
     let rng = random_f64.join_rng rngs
-    let x = (let init_j (j: i32) (r: f64) = (let blo = lower_bounds[j]
-                                             let db = upper_bounds[j] - blo
-                                             in blo + db * r)
-             let init_i (rs: [n]f64) = map init_j (iota n) rs
+    let x = (let init_j (lower: f64) (upper: f64) (r: f64) =
+               (let blo = lower
+                let db = upper - blo
+                in blo + db * r)
+             let init_i (rs: [n]f64) = map init_j lower_bounds upper_bounds rs
              in map init_i rss)
     let fx = map f x
     let (fx0, best_idx) =
       reduce (\(a,a_i) (b,b_i) -> if a < b then (a,a_i) else (b,b_i))
-             (f64.inf, 0) (zip (map f x) (iota np))
+             (f64.inf, 0) (zip fx (iota np))
 
     let mutation (difw: f64) (best_idx: i32) (x: [np][n]f64)
                  (rng: random_f64.rng) (i :i32) (x_i: [n]f64) =

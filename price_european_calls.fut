@@ -243,7 +243,7 @@ fun price_european_calls
        let moneyness = map (/f0) strikes
        let minus_ik = map (\k -> c64.mk_im (- f64.log k)) moneyness
 
-       let iter (j: i32) =
+       let iter (j: i32): [nstrikes]f64 =
          (let xj = x[j]
           let wj = w[j]
           let x = c64.mk_re xj
@@ -262,7 +262,9 @@ fun price_european_calls
                   let coeff_k = unsafe coeff_ks[m]
                   in w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
                  minus_ik maturity_for_quote)
-       let res = map (\r -> reduce (+) 0.0 r) (transpose (map iter (iota n)))
+       -- Writing this as a map-reduce requires way too much memory
+       -- for compiler limitation reasons.
+       loop (res = replicate nstrikes 0.0) = for j < n do map (+) res (iter j)
        in map (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
