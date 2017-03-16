@@ -59,11 +59,11 @@ module least_squares(P: pricer) = {
             cr: f64  -- Crossover probability [0,1]
            }
 
-  type termination = {maxit: i32, maxf: i32, target: f64}
+  type termination = {max_iterations: i32, max_global: i32, target: f64}
 
   type status = i32 -- Pretend it's opaque!
-  val maxit_reached: status = 0
-  val maxf_reached: status = 1
+  val max_iterations_reached: status = 0
+  val max_global_reached: status = 1
   val target_reached: status = 2
 
   type result = {x0: []f64, f: f64, nb_feval: i32, status: status}
@@ -75,6 +75,12 @@ module least_squares(P: pricer) = {
                                  if fixed then x else unsafe xs[fv])
                             vars_to_free_vars variables)
 
+  fun min_and_idx (a:f64,a_i:i32) (b:f64,b_i:i32) =
+    if      a < b     then (a,a_i)
+    else if b < a     then (b,b_i)
+    else if a_i < b_i then (a, a_i)
+    else                   (b, b_i)
+
   fun optimize (pricer_ctx: P.pricer_ctx)
                (quotes: [m]f64)
                (vars_to_free_vars: [num_variables]i32)
@@ -82,14 +88,13 @@ module least_squares(P: pricer) = {
                ({np, cr}: t)
                (lower_bounds: [n]f64)
                (upper_bounds: [n]f64)
-               ({maxit,maxf,target}: termination): result =
+               ({max_iterations,max_global,target}: termination): result =
   -- The optimisation function.  This could be factored out into a
   -- function argument (as a parametric module).
     let f (x: []f64): f64 =
       P.distance quotes (P.pricer pricer_ctx (parameters_of_active_vars vars_to_free_vars variables x))
 
     let rng = random_f64.rng_from_seed 0x123
-    -- number instead.
     let rngs = random_f64.split_rng np rng
     let (rngs, rss) = unzip (map (\rng -> random_f64.nrand rng (0.0, 1.0) n) rngs)
     let rng = random_f64.join_rng rngs
@@ -100,31 +105,23 @@ module least_squares(P: pricer) = {
              let init_i (rs: [n]f64) = map init_j lower_bounds upper_bounds rs
              in map init_i rss)
     let fx = map f x
-    let min_and_idx (a:f64,a_i:i32) (b:f64,b_i:i32) =
-      if      a < b     then (a,a_i)
-      else if b < a     then (b,b_i)
-      else if a_i < b_i then (a, a_i)
-      else                   (b, b_i)
     let (fx0, best_idx) =
       reduceComm min_and_idx (f64.inf, 0) (zip fx (iota np))
 
     let mutation (difw: f64) (best_idx: i32) (x: [np][n]f64)
                  (rng: random_f64.rng) (i :i32) (x_i: [n]f64) =
-      (let to_draw = 3
-       -- We have to draw 'to_draw' distinct elements from 'x', and
-       -- it can't be 'i'.  We do this with a brute-force loop.
-       let indices = replicate to_draw i
-       let drawn = 0
-       loop ((rng,indices,drawn)) = while drawn < to_draw do
-         (let (rng, j) = random_i32.rand rng (0,np)
-          loop (ok = true) = for l < drawn do ok && unsafe indices[l] != j
-          in if ok
-             then unsafe let indices[drawn] = j in (rng, indices, drawn+1)
-             else (rng, indices, drawn))
+      (-- We have to draw 'to_draw' distinct elements from 'x', and it
+       -- can't be 'i'.  We do this with brute-force looping.
+       let (rng,a) = random_i32.rand rng (0,np)
+       let (rng,b) = random_i32.rand rng (0,np)
+       let (rng,c) = random_i32.rand rng (0,np)
+       loop ((rng,a)) = while a == i do random_i32.rand rng (0,np)
+       loop ((rng,b)) = while b == i || b == a do random_i32.rand rng (0,np)
+       loop ((rng,c)) = while c == i || c == a || c == b do random_i32.rand rng (0,np)
        let (rng,r) = random_f64.rand rng (0.0, 1.0)
-       let x_r1 = unsafe if r <= 0.5 then x[best_idx] else unsafe x[indices[0]]
-       let x_r2 = unsafe x[indices[1]]
-       let x_r3 = unsafe x[indices[2]]
+       let x_r1 = unsafe if r <= 0.5 then x[best_idx] else unsafe x[a]
+       let x_r2 = unsafe x[b]
+       let x_r3 = unsafe x[c]
        let (rng,j0) = random_i32.rand rng (0,n)
        let (rng,rs) = random_f64.nrand rng (0.0, 1.0) n
        let auxs = map (+) x_r1 (map (difw*) (map (-) x_r2 x_r3))
@@ -150,8 +147,8 @@ module least_squares(P: pricer) = {
     -- increments a counter), but we should be close.
     loop ((rng, ncalls, nb_it,
            (fx0, best_idx, fx, x)) =
-          (rng, np*2, maxit,
-           (fx0, best_idx, fx, x))) = while nb_it > 0 && maxf > ncalls && fx0 > target do
+          (rng, np*2, max_iterations,
+           (fx0, best_idx, fx, x))) = while nb_it > 0 && max_global > ncalls && fx0 > target do
       (let (rng,differential_weight) = random_f64.rand rng (0.5, 1.0)
        let rngs = random_f64.split_rng np rng
        let (rngs, v) = unzip (map (mutation differential_weight best_idx x) rngs (iota np) x)
@@ -161,8 +158,8 @@ module least_squares(P: pricer) = {
            (fx0, best_idx, fx, x)))
     let x0 = x[best_idx]
     let status = if      fx0 <= target then target_reached
-                 else if maxf < ncalls then maxf_reached
-                 else if nb_it == 0    then maxit_reached
+                 else if max_global < ncalls then max_global_reached
+                 else if nb_it == 0    then max_iterations_reached
                  else 1337 -- never reached
     in {x0=x0, f=fx0, nb_feval=ncalls, status=status}
 
@@ -190,7 +187,7 @@ module least_squares(P: pricer) = {
       if max_global > 0
       then let res = (optimize pricer_ctx quotes vars_to_free_vars variables
                       (default_parameters num_free_vars) lower_bounds upper_bounds
-                      {maxit = 0x7FFFFFFF, maxf = max_global, target = 0.0})
+                      {max_iterations = 0x7FFFFFFF, max_global = max_global, target = 0.0})
            in (#x0 res, #nb_feval res)
       else (x, 0)
 
