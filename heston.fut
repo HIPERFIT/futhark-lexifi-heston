@@ -117,8 +117,9 @@ fun main (max_global: i32)
         long_term_variance,
         correlation,
         mean_reversion,
-        variance_volatility } = #parameters result
+        variance_volatility} = #parameters result
   in (#root_mean_squared_error result,
+      #nb_feval result,
       initial_variance,
       long_term_variance,
       mean_reversion,

@@ -52,7 +52,8 @@ module least_squares(P: pricer) = {
   type calibration_result = { parameters: P.parameters,
                               root_mean_squared_error: f64,
                               quoted_prices: []f64,
-                              calibrated_prices: []f64 }
+                              calibrated_prices: []f64,
+                              nb_feval: i32 }
 
   type t = {np: i32, -- Population size
             cr: f64  -- Crossover probability [0,1]
@@ -185,17 +186,19 @@ module least_squares(P: pricer) = {
 
     let rms_of_error (err: f64) = f64.sqrt(err * (10000.0 / f64 m))
 
-    let x =
+    let (x, nb_feval) =
       if max_global > 0
-      then #x0 (optimize pricer_ctx quotes vars_to_free_vars variables
-                (default_parameters num_free_vars) lower_bounds upper_bounds
-                {maxit = 0x7FFFFFFF, maxf = max_global, target = 0.0})
-      else x
+      then let res = (optimize pricer_ctx quotes vars_to_free_vars variables
+                      (default_parameters num_free_vars) lower_bounds upper_bounds
+                      {maxit = 0x7FFFFFFF, maxf = max_global, target = 0.0})
+           in (#x0 res, #nb_feval res)
+      else (x, 0)
 
     let prices = P.pricer pricer_ctx (parameters_of_active_vars vars_to_free_vars variables x)
 
     in {parameters = parameters_of_active_vars vars_to_free_vars variables x,
         root_mean_squared_error = rms_of_error (P.distance quotes prices),
         quoted_prices = quotes,
-        calibrated_prices = prices}
+        calibrated_prices = prices,
+        nb_feval = nb_feval}
 }
