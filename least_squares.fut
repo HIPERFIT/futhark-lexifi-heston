@@ -119,7 +119,7 @@ module least_squares(P: pricer) = {
        loop ((rng,b)) = while b == i || b == a do random_i32.rand rng (0,np)
        loop ((rng,c)) = while c == i || c == a || c == b do random_i32.rand rng (0,np)
        let (rng,r) = random_f64.rand rng (0.0, 1.0)
-       let x_r1 = unsafe if r <= 0.5 then x[best_idx] else unsafe x[a]
+       let x_r1 = unsafe if r <= 0.5 then x[best_idx] else x[a]
        let x_r2 = unsafe x[b]
        let x_r3 = unsafe x[c]
        let (rng,j0) = random_i32.rand rng (0,n)

@@ -16,6 +16,13 @@ module random_i32: (random with t = i32) = {
   type t = i32
   type rng = i32
 
+  -- From http://stackoverflow.com/a/12996028
+  fun hash(x: i32): i32 =
+    let x = ((x >>> 16) ^ x) * 0x45d9f3b
+    let x = ((x >>> 16) ^ x) * 0x45d9f3b
+    let x = ((x >>> 16) ^ x) in
+    x
+
   fun rng_from_seed (x: i32) = x ^ 0b1010101010101
 
   fun split_rng (n: i32) (x: rng): [n]rng =
@@ -23,13 +30,6 @@ module random_i32: (random with t = i32) = {
 
   fun join_rng (xs: [n]rng): rng =
     reduce (^) 0 xs
-
-  -- From http://stackoverflow.com/a/12996028
-  fun hash(x: i32): i32 =
-    let x = ((x >>> 16) ^ x) * 0x45d9f3b
-    let x = ((x >>> 16) ^ x) * 0x45d9f3b
-    let x = ((x >>> 16) ^ x) in
-    x
 
   fun rand (x: i32) (min: i32, max: i32) =
     let x' = hash x

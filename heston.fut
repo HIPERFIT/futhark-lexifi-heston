@@ -1,5 +1,6 @@
+import "futlib/date"
+
 import "least_squares"
-import "date"
 import "price_european_calls"
 
 type calibration_input = { today: date
@@ -59,7 +60,7 @@ fun run_calibration({today,
       (let k = 1.0 / (f64.exp(gamma * x0) - 1.0)
        in if x <= x0 then k * (f64.exp(gamma * x) - 1.0) else 1.0)
   let weight (strike: f64) (mat: date) =
-    maturity_weight maturity_weight_x0 maturity_weight_gamma (sub_act_365 mat today) *
+    maturity_weight maturity_weight_x0 maturity_weight_gamma (diff_dates today mat) *
     strike_weight strike_weight_bandwidth strike
 
 
@@ -76,7 +77,7 @@ fun run_calibration({today,
                                                      , vega = v})
         quotes weights prices_and_vegas quotes_to_maturities
 
-  let ctx = { day_count_fractions = map (\m -> sub_act_365 m today) maturity_dates
+  let ctx = { day_count_fractions = map (diff_dates today) maturity_dates
             , quotes = quotes_for_ctx
             , integral_iterations = integral_iterations }
 

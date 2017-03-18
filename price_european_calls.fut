@@ -1,6 +1,6 @@
 import "futlib/math"
 import "futlib/complex"
-import "date"
+import "futlib/date"
 
 module c64 = complex(f64)
 type c64 = c64.complex
