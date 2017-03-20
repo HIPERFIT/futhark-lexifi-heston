@@ -205,9 +205,9 @@ fun price_european_calls
     (df_div: f64)
     (df: f64)
     (heston_parameters: heston_parameters)
-    (day_count_fractions: [nmaturities]f64)
-    (quotes: [nstrikes]{strike: f64, maturity: i32})
-  : [nstrikes]f64 =
+    (day_count_fractions: [num_maturities]f64)
+    (quotes: [num_quotes]{strike: f64, maturity: i32})
+  : [num_quotes]f64 =
        let {initial_variance = v0, long_term_variance = theta, mean_reversion = kappa, correlation = rho, variance_volatility = eta} = heston_parameters
        let maturity_for_quote = map (\q -> #maturity q) quotes
        let strikes = map (\q -> #strike q) quotes
@@ -243,7 +243,7 @@ fun price_european_calls
        let moneyness = map (/f0) strikes
        let minus_ik = map (\k -> c64.mk_im (- f64.log k)) moneyness
 
-       let iter (j: i32): [nstrikes]f64 =
+       let iter (j: i32): [num_quotes]f64 =
          (let xj = x[j]
           let wj = w[j]
           let x = c64.mk_re xj
@@ -264,7 +264,7 @@ fun price_european_calls
                  minus_ik maturity_for_quote)
        -- Writing this as a map-reduce requires way too much memory
        -- for compiler limitation reasons.
-       loop (res = replicate nstrikes 0.0) = for j < n do map (+) res (iter j)
+       loop (res = replicate num_quotes 0.0) = for j < n do map (+) res (iter j)
        in map (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
