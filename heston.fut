@@ -11,21 +11,21 @@ type calibration_input = { today: date
                          , integral_iterations: nb_points
                          , variables: []optimization_variable }
 
+fun heston_parameters_from_vector (x: [5]f64) =
+  { initial_variance = x[0]
+  , long_term_variance = x[1]
+  , correlation = x[2]
+  , mean_reversion = x[3]
+  , variance_volatility = x[4] }
+
 module heston_least_squares = least_squares {
-  type parameters = heston_parameters
   type pricer_ctx = {day_count_fractions: []f64,
                      quotes: []{maturity: i32, strike: f64, vega: f64, weight: f64},
                      integral_iterations: nb_points
                      }
 
-  fun parameters_of_vector (x: [5]f64) =
-    { initial_variance = x[0]
-    , long_term_variance = x[1]
-    , correlation = x[2]
-    , mean_reversion = x[3]
-    , variance_volatility = x[4] }
-
-  fun pricer ({day_count_fractions, quotes, integral_iterations}: pricer_ctx) (heston_parameters: parameters) =
+  fun pricer ({day_count_fractions, quotes, integral_iterations}: pricer_ctx) (x: []f64) =
+    let heston_parameters = heston_parameters_from_vector x
     let prices = price_european_calls
                  (gauss_laguerre_coefficients integral_iterations)
                  false 1.0 1.0 1.0
@@ -117,7 +117,7 @@ fun main (max_global: i32)
         long_term_variance,
         correlation,
         mean_reversion,
-        variance_volatility} = #parameters result
+        variance_volatility} = heston_parameters_from_vector (#parameters result)
   in (#root_mean_squared_error result,
       #nb_feval result,
       initial_variance,
