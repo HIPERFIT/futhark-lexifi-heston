@@ -29,7 +29,7 @@ module random_i32: (random with t = i32) = {
     map (\i -> x ^ hash i) (iota n)
 
   fun join_rng (xs: [n]rng): rng =
-    reduce (^) 0 xs
+    xs[0]
 
   fun rand (x: i32) (min: i32, max: i32) =
     let x' = hash x

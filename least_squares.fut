@@ -19,7 +19,10 @@ module relative_distance: distance = {
     let norm (price: f64) (quote: f64) =
       (let dif = price - quote
        in dif * dif)
-    in reduce (+) 0.0 (map norm quotes prices)
+    let a = map norm quotes prices
+    let a[0] = a[0] + 1.0
+    let a[0] = a[0] - 1.0
+    in reduce (+) 0.0 a
 }
 
 module type pricer = {
@@ -101,6 +104,8 @@ module least_squares(P: pricer) = {
              let init_i (rs: [num_free_vars]f64) = map init_j lower_bounds upper_bounds rs
              in map init_i rss)
     let fx = map objective x
+    let fx[0] = fx[0]+1.0
+    let fx[0] = fx[0]-1.0
     let (fx0, best_idx) =
       reduceComm min_and_idx (f64.inf, 0) (zip fx (iota np))
 
@@ -134,6 +139,8 @@ module least_squares(P: pricer) = {
        let fx' = map f64.min f_v fx
        let x' = map (\f fx_i x_i v_i -> if f < fx_i then v_i else x_i)
                     f_v fx x v
+       let f_v[0] = f_v[0] + 1.0
+       let f_v[0] = f_v[0] - 1.0
        let (fx0', best_idx') =
          reduceComm min_and_idx (fx0, best_idx) (zip f_v (iota np))
        in (fx0', best_idx', fx', x'))

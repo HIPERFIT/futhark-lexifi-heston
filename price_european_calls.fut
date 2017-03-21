@@ -264,7 +264,7 @@ fun price_european_calls
                  minus_ik maturity_for_quote)
        -- Writing this as a map-reduce requires way too much memory
        -- for compiler limitation reasons.
-       loop (res = replicate num_quotes 0.0) = for j < n do map (+) res (iter j)
+       let res = map (\x -> reduce (+) 0.0 x) (transpose (map iter (iota n)))
        in map (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
