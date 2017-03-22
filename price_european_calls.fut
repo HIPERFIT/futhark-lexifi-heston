@@ -199,7 +199,7 @@ fun bs_control (moneyness: f64) (sigma_sqrtt: f64) =
   in pnorm d1 - moneyness * pnorm (d1 - sigma_sqrtt)
 
 fun price_european_calls
-    (x: [n]f64, w: [n]f64)
+    (x: [nb_points]f64, w: [nb_points]f64)
     (ap1: bool)
     (spot: f64)
     (df_div: f64)
@@ -262,9 +262,7 @@ fun price_european_calls
                   let coeff_k = unsafe coeff_ks[m]
                   in w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
                  minus_ik maturity_for_quote)
-       -- Writing this as a map-reduce requires way too much memory
-       -- for compiler limitation reasons.
-       let res = map (\x -> reduce (+) 0.0 x) (transpose (map iter (iota n)))
+       let res = map (\x -> reduce (+) 0.0 x) (transpose (map iter (iota nb_points)))
        in map (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
