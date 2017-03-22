@@ -5,6 +5,7 @@ import "price_european_calls"
 type calibration_input = { today: date
                          , quotes: []{maturity: date, strike: f64, quote: f64}
                          , max_global: i32
+                         , np: i32
                          , strike_weight_bandwidth: f64
                          , maturity_weight_x0: f64
                          , maturity_weight_gamma: f64
@@ -46,6 +47,7 @@ fun distinct_maturities (dates: [n]date): ([]date, [n]i32) =
 fun run_calibration({today,
                      quotes,
                      max_global,
+                     np,
                      strike_weight_bandwidth,
                      maturity_weight_x0,
                      maturity_weight_gamma,
@@ -80,7 +82,7 @@ fun run_calibration({today,
             , quotes = quotes_for_ctx
             , integral_iterations = integral_iterations }
 
-  in heston_least_squares.least_squares ctx max_global variables quotes_for_optimization
+  in heston_least_squares.least_squares ctx max_global np variables quotes_for_optimization
 
 fun date_of_int(x: i32) =
   let d = x%100
@@ -98,6 +100,7 @@ val default_variables: []optimization_variable =
 
 fun main (max_global: i32)
          (nb_points: i32)
+         (np: i32)
          (today: i32)
          (quotes_maturity: [num_quotes]i32)
          (quotes_strike: [num_quotes]f64)
@@ -107,6 +110,7 @@ fun main (max_global: i32)
                     , quotes = map (\m k q -> {maturity = date_of_int m, strike = k, quote = q})
                       quotes_maturity quotes_strike quotes_quote
                     , max_global = max_global
+                    , np = np
                     , strike_weight_bandwidth = 0.0
                     , maturity_weight_x0 = 0.0
                     , maturity_weight_gamma = 1.0

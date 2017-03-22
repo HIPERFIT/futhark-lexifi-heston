@@ -166,13 +166,10 @@ module least_squares(P: pricer) = {
                  else 1337 -- never reached
     in {x0=x0, f=fx0, nb_feval=ncalls, status=status}
 
-  fun default_parameters (num_free_vars: i32) =
-    {np = i32.min (10*num_free_vars) 40,
-     cr = 0.9}
-
   fun least_squares
       (pricer_ctx: P.pricer_ctx)
       (max_global: i32)
+      (np: i32)
       (variables: [num_vars]optimization_variable)
       (quotes: [num_quotes]f64)
       : calibration_result =
@@ -190,7 +187,7 @@ module least_squares(P: pricer) = {
     let (x, nb_feval) =
       if max_global > 0
       then let res = (optimize pricer_ctx quotes vars_to_free_vars variables
-                      (default_parameters num_free_vars) lower_bounds upper_bounds
+                      {np = np, cr = 0.9} lower_bounds upper_bounds
                       {max_iterations = 0x7FFFFFFF, max_global = max_global, target = 0.0})
            in (#x0 res, #nb_feval res)
       else (x, 0)
