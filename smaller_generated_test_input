@@ -1,7 +1,7 @@
-4000 -- max_global
+2000 -- max_global
 
 20 -- nb_points
-400 -- np
+40 -- np
 
 20170126 -- today
 
