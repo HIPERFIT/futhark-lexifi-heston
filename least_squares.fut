@@ -20,9 +20,7 @@ module relative_distance: distance = {
       (let dif = price - quote
        in dif * dif)
     let a = map norm quotes prices
-    let a[0] = a[0] + 1.0
-    let a[0] = a[0] - 1.0
-    in reduce (+) 0.0 a
+    in reduce (+) 0.0 a[0:num_quotes]
 }
 
 module type pricer = {
@@ -139,10 +137,8 @@ module least_squares(P: pricer) = {
        let fx' = map f64.min f_v fx
        let x' = map (\f fx_i x_i v_i -> if f < fx_i then v_i else x_i)
                     f_v fx x v
-       let f_v[0] = f_v[0] + 1.0
-       let f_v[0] = f_v[0] - 1.0
        let (fx0', best_idx') =
-         reduceComm min_and_idx (fx0, best_idx) (zip f_v (iota np))
+         reduceComm min_and_idx (fx0, best_idx) (zip f_v[0:np] (iota np))
        in (fx0', best_idx', fx', x'))
 
     -- We are not counting the numer of invocations of the objective
