@@ -103,7 +103,7 @@ module least_squares(P: pricer) = {
              in map init_i rss)
     let fx = map objective x
     let (fx0, best_idx) =
-      reduceComm min_and_idx (f64.inf, 0) (zip (intrinsics.opaque fx) (iota np))
+      reduce_comm min_and_idx (f64.inf, 0) (zip (intrinsics.opaque fx) (iota np))
 
     let mutation (difw: f64) (best_idx: i32) (x: [np][num_free_vars]f64)
                  (rng: random_f64.rng) (i :i32) (x_i: [num_free_vars]f64) =
@@ -130,13 +130,16 @@ module least_squares(P: pricer) = {
 
        in (rng, v_i))
 
-    let recombination (fx0: f64) (best_idx: i32) (fx: [np]f64) (x: [np][num_free_vars]f64) (v: [np][num_free_vars]f64) =
+    let recombination (fx0: f64) (best_idx: i32) (fx: [np]f64)
+                      (x: [np][num_free_vars]f64) (v: [np][num_free_vars]f64) =
       (let f_v = map objective v
        let fx' = map f64.min f_v fx
        let x' = map (\f fx_i x_i v_i -> if f < fx_i then v_i else x_i)
                     f_v fx x v
        let (fx0', best_idx') =
-         reduceComm min_and_idx (fx0, best_idx) (zip (intrinsics.opaque f_v) (iota np))
+         reduce_comm min_and_idx
+                    (fx0, best_idx)
+                    (zip (intrinsics.opaque f_v) (iota np))
        in (fx0', best_idx', fx', x'))
 
     -- We are not counting the numer of invocations of the objective
