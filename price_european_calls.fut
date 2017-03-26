@@ -10,13 +10,13 @@ fun (x: c64) -! (y: c64) = x c64.- y
 fun (x: c64) *! (y: c64) = x c64.* y
 fun (x: c64) /! (y: c64) = x c64./ y
 
-val zero: c64 = c64.mk_re 0.0
-val one: c64 = c64.mk_re 1.0
-val two: c64 = c64.mk_re 2.0
+let zero: c64 = c64.mk_re 0.0
+let one: c64 = c64.mk_re 1.0
+let two: c64 = c64.mk_re 2.0
 
-val isqrt2pi = 2.0 * f64.pi ** -0.5
+let isqrt2pi = 2.0 * f64.pi ** -0.5
 
-val inv_sqrt2 = 1.0 / f64.sqrt 2.0
+let inv_sqrt2 = 1.0 / f64.sqrt 2.0
 
 fun erfc(x: f64): f64 =
   let a1 =  0.254829592
@@ -63,8 +63,8 @@ fun ugaussian_P (x: f64) =
   else 1.0 - 0.5 * erfc (x * inv_sqrt2)
 
 type nb_points = bool -- Pretend it's opaque.
-val ten: nb_points = true
-val twenty: nb_points = false
+let ten: nb_points = true
+let twenty: nb_points = false
 
 fun gauss_laguerre_coefficients (nb: nb_points) =
   if nb == ten then
@@ -134,7 +134,7 @@ module type pricer_parameter = {
 }
 
 module normal_true: pricer_parameter = {
-  val normal = true
+  let normal = true
 
   fun psi_h (day_count_fraction: f64) (heston_parameters: heston_parameters) (xi: c64) =
     let {initial_variance = v0,
@@ -165,7 +165,7 @@ module normal_true: pricer_parameter = {
 }
 
 module normal_false: pricer_parameter = {
-  val normal = false
+  let normal = false
 
   fun psi_h (day_count_fraction: f64) (heston_parameters: heston_parameters) (xi: c64) =
     let {initial_variance = v0,

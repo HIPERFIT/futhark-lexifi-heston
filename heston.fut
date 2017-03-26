@@ -90,7 +90,7 @@ fun date_of_int(x: i32) =
   let y = x/10000
   in date_of_triple (y, m, d)
 
-val default_variables: []optimization_variable =
+let default_variables: []optimization_variable =
     [optimize_value {lower_bound =  1e-6, initial_value = 4e-2, upper_bound = 1.},
      optimize_value {lower_bound =  1e-6, initial_value = 4e-2, upper_bound = 1.},
      optimize_value {lower_bound = -1.  , initial_value = -0.5, upper_bound = 0.},

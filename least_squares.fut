@@ -62,9 +62,9 @@ module least_squares(P: pricer) = {
   type termination = {max_iterations: i32, max_global: i32, target: f64}
 
   type status = i32 -- Pretend it's opaque!
-  val max_iterations_reached: status = 0
-  val max_global_reached: status = 1
-  val target_reached: status = 2
+  let max_iterations_reached: status = 0
+  let max_global_reached: status = 1
+  let target_reached: status = 2
 
   type result = {x0: []f64, f: f64, nb_feval: i32, status: status}
 
