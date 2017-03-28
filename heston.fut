@@ -22,13 +22,13 @@ fun heston_parameters_from_vector (x: [5]f64) =
 module heston_least_squares = least_squares {
   type pricer_ctx = {day_count_fractions: []f64,
                      quotes: []{maturity: i32, strike: f64, vega: f64, weight: f64},
-                     integral_iterations: nb_points
+                     gauss_laguerre_coefficients: ([]f64, []f64)
                      }
 
-  fun pricer ({day_count_fractions, quotes, integral_iterations}: pricer_ctx) (x: []f64) =
+  fun pricer ({day_count_fractions, quotes, gauss_laguerre_coefficients}: pricer_ctx) (x: []f64) =
     let heston_parameters = heston_parameters_from_vector x
     let prices = price_european_calls
-                 (gauss_laguerre_coefficients integral_iterations)
+                 gauss_laguerre_coefficients
                  false 1.0 1.0 1.0
                  heston_parameters
                  day_count_fractions
@@ -78,9 +78,12 @@ fun run_calibration({today,
                                                      , vega = v})
         quotes weights prices_and_vegas quotes_to_maturities
 
-  let ctx = { day_count_fractions = map (diff_dates today) maturity_dates
-            , quotes = quotes_for_ctx
-            , integral_iterations = integral_iterations }
+  let ctx = { day_count_fractions =
+                map (diff_dates today) maturity_dates
+            , quotes =
+                quotes_for_ctx
+            , gauss_laguerre_coefficients =
+                gauss_laguerre_coefficients integral_iterations }
 
   in heston_least_squares.least_squares ctx max_global np variables quotes_for_optimization
 
