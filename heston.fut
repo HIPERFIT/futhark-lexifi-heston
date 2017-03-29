@@ -1,3 +1,8 @@
+-- ==
+-- compiled input @ data_1062_quotes
+-- compiled input @ data_10000_quotes
+-- compiled input @ data_100000_quotes
+
 import "futlib/date"
 import "least_squares"
 import "price_european_calls"
