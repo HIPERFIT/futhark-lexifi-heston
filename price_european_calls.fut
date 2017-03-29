@@ -262,7 +262,11 @@ fun price_european_calls
                   let coeff_k = unsafe coeff_ks[m]
                   in w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
                  minus_ik maturity_for_quote)
-       let res = map (\x -> reduce (+) 0.0 x) (transpose (map iter (iota nb_points)))
+
+       -- write reduction as loop to avoid pointless segmented
+       -- reduction (the inner parallelism is not needed).
+       let res = map (\x -> loop (v = 0.0) = for i < nb_points do v + x[i] in v)
+                     (transpose (map iter (iota nb_points)))
        in map (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = f64.sqrt (sigma2 day_count_fraction * day_count_fraction)
