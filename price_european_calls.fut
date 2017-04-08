@@ -199,14 +199,14 @@ fun bs_control (moneyness: f64) (sigma_sqrtt: f64) =
   in pnorm d1 - moneyness * pnorm (d1 - sigma_sqrtt)
 
 fun price_european_calls
-    (x: [nb_points]f64, w: [nb_points]f64)
+    (x: [#nb_points]f64, w: [#nb_points]f64)
     (ap1: bool)
     (spot: f64)
     (df_div: f64)
     (df: f64)
     (heston_parameters: heston_parameters)
-    (day_count_fractions: [num_maturities]f64)
-    (quotes: [num_quotes]{strike: f64, maturity: i32})
+    (day_count_fractions: [#num_maturities]f64)
+    (quotes: [#num_quotes]{strike: f64, maturity: i32})
   : [num_quotes]f64 =
        let {initial_variance = v0, long_term_variance = theta, mean_reversion = kappa, correlation = rho, variance_volatility = eta} = heston_parameters
        let maturity_for_quote = map (\q -> #maturity q) quotes

@@ -7,7 +7,7 @@ module type distance = {
 }
 
 module absolute_distance: distance = {
-  fun distance (quotes: [num_quotes]f64) (prices: [num_quotes]f64): f64 =
+  fun distance (quotes: [#num_quotes]f64) (prices: [#num_quotes]f64): f64 =
     let norm (price: f64) (quote: f64) =
       (let rel = (price - quote) / quote
        in rel * rel)
@@ -15,7 +15,7 @@ module absolute_distance: distance = {
 }
 
 module relative_distance: distance = {
-  fun distance (quotes: [num_quotes]f64) (prices: [num_quotes]f64): f64 =
+  fun distance (quotes: [#num_quotes]f64) (prices: [#num_quotes]f64): f64 =
     let norm (price: f64) (quote: f64) =
       (let dif = price - quote
        in dif * dif)
@@ -68,9 +68,9 @@ module least_squares(P: pricer) = {
 
   type result = {x0: []f64, f: f64, nb_feval: i32, status: status}
 
-  fun active_vars (vars_to_free_vars: [num_vars]i32)
-                  (variables: [num_vars]optimization_variable)
-                  (xs: [num_active]f64) =
+  fun active_vars (vars_to_free_vars: [#num_vars]i32)
+                  (variables: [#num_vars]optimization_variable)
+                  (xs: [#num_active]f64) =
     map (\fv (fixed,x,_) -> if fixed then x else unsafe xs[fv])
         vars_to_free_vars variables
 
@@ -81,12 +81,12 @@ module least_squares(P: pricer) = {
     else                   (b, b_i)
 
   fun optimize (pricer_ctx: P.pricer_ctx)
-               (quotes: [num_quotes]f64)
-               (vars_to_free_vars: [num_vars]i32)
-               (variables: [num_vars]optimization_variable)
+               (quotes: [#num_quotes]f64)
+               (vars_to_free_vars: [#num_vars]i32)
+               (variables: [#num_vars]optimization_variable)
                ({np, cr}: mutation)
-               (lower_bounds: [num_free_vars]f64)
-               (upper_bounds: [num_free_vars]f64)
+               (lower_bounds: [#num_free_vars]f64)
+               (upper_bounds: [#num_free_vars]f64)
                ({max_iterations,max_global,target}: termination): result =
     -- The objective function.  This could be factored out into a
     -- function argument (as a parametric module).
@@ -167,14 +167,14 @@ module least_squares(P: pricer) = {
       (pricer_ctx: P.pricer_ctx)
       (max_global: i32)
       (np: i32)
-      (variables: [num_vars]optimization_variable)
-      (quotes: [num_quotes]f64)
+      (variables: [#num_vars]optimization_variable)
+      (quotes: [#num_quotes]f64)
       : calibration_result =
     let (free_vars_to_vars, free_vars) =
       unzip (filter (\(_, (fixed, _, _)) -> !fixed) (zip (iota num_vars) variables))
     let num_free_vars = (shape free_vars)[0]
-    let vars_to_free_vars = write free_vars_to_vars (iota num_free_vars)
-                                  (replicate num_vars (-1))
+    let vars_to_free_vars = scatter (replicate num_vars (-1))
+                                    free_vars_to_vars (iota num_free_vars)
     let (x, lower_bounds, upper_bounds) =
       unzip (map (\(_, _, {initial_value, lower_bound, upper_bound}) ->
                   (initial_value, lower_bound, upper_bound)) free_vars)

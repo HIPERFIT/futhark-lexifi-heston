@@ -43,7 +43,7 @@ module heston_least_squares = least_squares {
   open relative_distance
 }
 
-fun distinct_maturities (dates: [n]date): ([]date, [n]i32) =
+fun distinct_maturities (dates: [#n]date): ([]date, [n]i32) =
   let switched (x: date) (i: i32) = i == 0 || unsafe !(same_date x dates[i-1])
   let switches = map switched dates (iota n)
   in (#2 (unzip (filter (\x -> #1 x) (zip switches dates))),
@@ -110,9 +110,9 @@ fun main (max_global: i32)
          (nb_points: i32)
          (np: i32)
          (today: i32)
-         (quotes_maturity: [num_quotes]i32)
-         (quotes_strike: [num_quotes]f64)
-         (quotes_quote: [num_quotes]f64) =
+         (quotes_maturity: [#num_quotes]i32)
+         (quotes_strike: [#num_quotes]f64)
+         (quotes_quote: [#num_quotes]f64) =
   let result =
     run_calibration { today = date_of_int today
                     , quotes = map (\m k q -> {maturity = date_of_int m, strike = k, quote = q})

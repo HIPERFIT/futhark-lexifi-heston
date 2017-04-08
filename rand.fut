@@ -28,7 +28,7 @@ module random_i32: (random with t = i32) = {
   fun split_rng (n: i32) (x: rng): [n]rng =
     map (\i -> x ^ hash i) (iota n)
 
-  fun join_rng (xs: [n]rng): rng =
+  fun join_rng (xs: [#n]rng): rng =
     xs[0]
 
   fun rand (x: i32) (min: i32, max: i32) =
