@@ -1,6 +1,6 @@
 import "rand"
 
-fun main(x: i32, n: i32, min: f64, max: f64) =
+let main(x: i32, n: i32, min: f64, max: f64) =
   let seqout = replicate n 0.0
   let rng = random_f64.rng_from_seed x
   let (_, parout) = random_f64.nrand rng (min,max) n
