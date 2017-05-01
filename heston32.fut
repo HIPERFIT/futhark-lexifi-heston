@@ -9,6 +9,9 @@ import "heston"
 
 module heston32 = heston f32 random_f32
 
+-- We still read the data sets as double precision, and initially
+-- convert them to single.  This is included in measurements, but
+-- takes a negligible amount of time.
 let main (max_global: i32)
          (nb_points: i32)
          (np: i32)

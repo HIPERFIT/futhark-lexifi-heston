@@ -56,9 +56,9 @@ type calibration_result 'real = { parameters: []real,
                                   calibrated_prices: []real,
                                   nb_feval: i32 }
 
-module least_squares (R: real)
-                     (Rand: random with t = R.t with rng = random_i32.rng)
-                     (P: pricer with real = R.t) : {
+module least_squares (real: real)
+                     (rand: random with t = real.t with rng = random_i32.rng)
+                     (P: pricer with real = real.t) : {
   val fixed_value: P.real -> optimization_variable P.real
   val optimize_value: range P.real -> optimization_variable P.real
 
@@ -67,16 +67,16 @@ module least_squares (R: real)
                    -> []P.real
                    -> calibration_result P.real
 } = {
-  type real = R.t
-  open R
+  type real = real.t
+  open real
 
   let fixed_value (v: real): optimization_variable real =
-    (true, v, {lower_bound=R.from_i32 0,
-               upper_bound=R.from_i32 0,
-               initial_value=R.from_i32 0})
+    (true, v, {lower_bound=real.from_i32 0,
+               upper_bound=real.from_i32 0,
+               initial_value=real.from_i32 0})
 
   let optimize_value (r: range real): optimization_variable real =
-    (false, R.from_i32 0, r)
+    (false, real.from_i32 0, r)
 
 
   -- Parameterisation of how the randomised search takes place.
@@ -118,21 +118,21 @@ module least_squares (R: real)
     let objective (x: [num_free_vars]real): real =
       P.distance quotes (P.pricer pricer_ctx (active_vars vars_to_free_vars variables x))
 
-    let bounds = (R.from_i32 0, R.from_i32 1)
-    let rng = Rand.rng_from_seed 0x123
-    let rngs = Rand.split_rng np rng
-    let (rngs, rss) = unzip (map (\rng -> Rand.nrand rng bounds num_free_vars) rngs)
-    let rng = Rand.join_rng rngs
+    let bounds = (real.from_i32 0, real.from_i32 1)
+    let rng = rand.rng_from_seed 0x123
+    let rngs = rand.split_rng np rng
+    let (rngs, rss) = unzip (map (\rng -> rand.nrand rng bounds num_free_vars) rngs)
+    let rng = rand.join_rng rngs
     let x = (let init_j (lower_bound: real) (upper_bound: real) (r: real) =
                lower_bound + (upper_bound-lower_bound) * r
              let init_i (rs: [num_free_vars]real) = map init_j lower_bounds upper_bounds rs
              in map init_i rss)
     let fx = map objective x
     let (fx0, best_idx) =
-      reduce_comm min_and_idx (R.inf, 0) (zip (intrinsics.opaque fx) (iota np))
+      reduce_comm min_and_idx (real.inf, 0) (zip (intrinsics.opaque fx) (iota np))
 
     let mutation (difw: real) (best_idx: i32) (x: [np][num_free_vars]real)
-                 (rng: Rand.rng) (i :i32) (x_i: [num_free_vars]real) =
+                 (rng: rand.rng) (i :i32) (x_i: [num_free_vars]real) =
       (-- We have to draw 'to_draw' distinct elements from 'x', and it
        -- can't be 'i'.  We do this with brute-force looping.
        let (rng,a) = random_i32.rand rng (0,np)
@@ -141,12 +141,12 @@ module least_squares (R: real)
        loop ((rng,a)) = while a i32.== i do random_i32.rand rng (0,np)
        loop ((rng,b)) = while b i32.== i || b i32.== a do random_i32.rand rng (0,np)
        loop ((rng,c)) = while c i32.== i || c i32.== a || c i32.== b do random_i32.rand rng (0,np)
-       let (rng,r) = Rand.rand rng bounds
-       let x_r1 = unsafe if r <= R.from_fraction 1 2 then x[best_idx] else x[a]
+       let (rng,r) = rand.rand rng bounds
+       let x_r1 = unsafe if r <= real.from_fraction 1 2 then x[best_idx] else x[a]
        let x_r2 = unsafe x[b]
        let x_r3 = unsafe x[c]
        let (rng,j0) = random_i32.rand rng (0,num_free_vars)
-       let (rng,rs) = Rand.nrand rng bounds num_free_vars
+       let (rng,rs) = rand.nrand rng bounds num_free_vars
        let auxs = map (+) x_r1 (map (difw*) (map (-) x_r2 x_r3))
        let v_i = map (\j r lower_bound upper_bound aux x_i_j ->
                       if (j i32.== j0 || r <= cr) && lower_bound <= aux && aux <= upper_bound
@@ -159,7 +159,7 @@ module least_squares (R: real)
     let recombination (fx0: real) (best_idx: i32) (fx: [np]real)
                       (x: [np][num_free_vars]real) (v: [np][num_free_vars]real) =
       (let f_v = map objective v
-       let fx' = map R.min f_v fx
+       let fx' = map real.min f_v fx
        let x' = map (\f fx_i x_i v_i -> if f < fx_i then v_i else x_i)
                     f_v fx x v
        let (fx0', best_idx') =
@@ -175,10 +175,10 @@ module least_squares (R: real)
            (fx0, best_idx, fx, x)) =
           (rng, np, max_iterations,
            (fx0, best_idx, fx, x))) = while nb_it i32.> 0 && max_global i32.> ncalls && fx0 > target do
-      (let (rng,differential_weight) = Rand.rand rng (R.from_fraction 1 2, R.from_i32 1)
-       let rngs = Rand.split_rng np rng
+      (let (rng,differential_weight) = rand.rand rng (real.from_fraction 1 2, real.from_i32 1)
+       let rngs = rand.split_rng np rng
        let (rngs, v) = unzip (map (mutation differential_weight best_idx x) rngs (iota np) x)
-       let rng = Rand.join_rng rngs
+       let rng = rand.join_rng rngs
        let (fx0, best_idx, fx, x) = recombination fx0 best_idx fx x v
        in (rng, ncalls i32.+ np, nb_it i32.- 1,
            (fx0, best_idx, fx, x)))
@@ -205,15 +205,15 @@ module least_squares (R: real)
       unzip (map (\(_, _, {initial_value, lower_bound, upper_bound}) ->
                   (initial_value, lower_bound, upper_bound)) free_vars)
 
-    let rms_of_error (err: real) = R.sqrt(err * (R.from_i32 10000 / R.from_i32 num_quotes))
+    let rms_of_error (err: real) = real.sqrt(err * (real.from_i32 10000 / real.from_i32 num_quotes))
 
     let (x, nb_feval) =
       if max_global i32.> 0
       then let res = (optimize pricer_ctx quotes vars_to_free_vars variables
-                      {np = np, cr = R.from_fraction 9 10} lower_bounds upper_bounds
+                      {np = np, cr = real.from_fraction 9 10} lower_bounds upper_bounds
                       {max_iterations = 0x7FFFFFFF,
                        max_global = max_global,
-                       target = R.from_i32 0})
+                       target = real.from_i32 0})
            in (#x0 res, #nb_feval res)
       else (x, 0)
 
