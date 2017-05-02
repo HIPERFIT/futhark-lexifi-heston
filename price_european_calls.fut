@@ -1,6 +1,7 @@
-import "futlib/math"
-import "futlib/complex"
-import "futlib/date"
+import "/futlib/math"
+import "/futlib/array"
+import "/futlib/complex"
+import "/futlib/date"
 
 type nb_points = bool -- Pretend it's opaque.
 let ten: nb_points = true

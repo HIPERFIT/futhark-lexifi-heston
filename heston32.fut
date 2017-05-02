@@ -3,7 +3,6 @@
 -- compiled input @ data_10000_quotes
 -- compiled input @ data_100000_quotes
 
-import "futlib/date"
 import "rand"
 import "heston"
 

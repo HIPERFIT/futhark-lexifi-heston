@@ -392,7 +392,7 @@ should cut the memory traffic (and runtime) in half.
 
 The Futhark implementation has been written using generic programming
 techniques, making it easy to switch between double to single
-precision without having to main two separate programs.
+precision without having to maintain two separate programs.
 Table~\ref{tab:single-precision} reproduces the runtimes for the
 double-precision implementation on GPUs, and also shows the runtimes
 and speedups (again compared to the reference implementation) for a
@@ -733,10 +733,10 @@ The archive contains two directories:
 \item[\texttt{futhark\_implementation}:] Contains the Futhark
   implementation.  If the Futhark compiler (and its tools) has been
   installed, run\\
-  \texttt{futhark-bench~heston.fut}\\ to benchmark the implementation
+  \texttt{futhark-bench~heston64.fut}\\ to benchmark the implementation
   for all datasets on the CPU, and print runtime measurements to the
   console.  For parallel execution, run\\
-  \texttt{futhark-bench~heston.fut~--compiler=futhark-opencl}.
+  \texttt{futhark-bench~heston64.fut~--compiler=futhark-opencl}.
 \end{description}
 
 The Futhark implementation has been written in a generic style, using
@@ -757,6 +757,9 @@ implementation source files as follows:
 
 Instantiations that use single and double-precision respectively are
 found in \texttt{heston32.fut} and \texttt{heston64.fut}.
+
+Additionally, the implementation is publicly available at
+\url{https://github.com/HIPERFIT/futhark-lexifi-heston}.
 
 \end{document}
 
