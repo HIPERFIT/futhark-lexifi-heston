@@ -1,4 +1,6 @@
+import "/futlib/math"
 import "/futlib/date"
+import "rand"
 import "least_squares"
 import "price_european_calls"
 
