@@ -5,8 +5,7 @@ import "least_squares"
 import "price_european_calls"
 
 module heston (real: real)
-              (rand: rng_engine with t = u32)
-              (u32_to_real: convert with from = u32 with to = real.t) : {
+              (rand: rng_engine with t = u32): {
   type real = real.t
   val heston: i32 -> i32 -> i32 -> i32 ->
               []i32 ->
@@ -33,7 +32,7 @@ let heston_parameters_from_vector (x: [5]real) =
 
 module price_european_calls_real = price_european_calls real
 
-module heston_least_squares = least_squares real rand u32_to_real {
+module heston_least_squares = least_squares real rand {
   open (relative_distance real)
 
   let real (x: f64) = real.from_f64 x

@@ -7,7 +7,7 @@ import "/futlib/random"
 import "/futlib/math"
 import "heston"
 
-module heston64 = heston f64 minstd_rand u32_to_f64
+module heston64 = heston f64 minstd_rand
 
 let main (max_global: i32)
          (nb_points: i32)
