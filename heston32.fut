@@ -3,10 +3,11 @@
 -- compiled input @ data_10000_quotes
 -- compiled input @ data_100000_quotes
 
-import "rand"
+import "/futlib/random"
+import "/futlib/math"
 import "heston"
 
-module heston32 = heston f32 random_f32
+module heston32 = heston f32 minstd_rand u32_to_f32
 
 -- We still read the data sets as double precision, and initially
 -- convert them to single.  This is included in measurements, but

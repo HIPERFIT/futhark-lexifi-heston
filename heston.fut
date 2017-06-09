@@ -1,12 +1,13 @@
 import "/futlib/math"
 import "/futlib/date"
-import "rand"
+import "/futlib/random"
 import "least_squares"
 import "price_european_calls"
 
-module heston (R: real)
-              (Rand: random with t = R.t with rng = random_i32.rng) : {
-  type real = R.t
+module heston (real: real)
+              (rand: rng_engine with t = u32)
+              (u32_to_real: convert with from = u32 with to = real.t) : {
+  type real = real.t
   val heston: i32 -> i32 -> i32 -> i32 ->
               []i32 ->
               []real ->
@@ -14,14 +15,14 @@ module heston (R: real)
               (real,i32,real,real,real,real,real)
 } = {
 
-type real = R.t
-let real (x: f64) = R.from_f64 x
+type real = real.t
+let real (x: f64) = real.from_f64 x
 
-let (x: real) +. (y: real) = x R.+ y
-let (x: real) *. (y: real) = x R.* y
-let (x: real) -. (y: real) = x R.- y
-let (x: real) /. (y: real) = x R.- y
-let (x: real) <=. (y: real) = x R.<= y
+let (x: real) +. (y: real) = x real.+ y
+let (x: real) *. (y: real) = x real.* y
+let (x: real) -. (y: real) = x real.- y
+let (x: real) /. (y: real) = x real.- y
+let (x: real) <=. (y: real) = x real.<= y
 
 let heston_parameters_from_vector (x: [5]real) =
   { initial_variance = x[0]
@@ -30,21 +31,21 @@ let heston_parameters_from_vector (x: [5]real) =
   , mean_reversion = x[3]
   , variance_volatility = x[4] }
 
-module price_european_calls_R = price_european_calls R
+module price_european_calls_real = price_european_calls real
 
-module heston_least_squares = least_squares R Rand {
-  open (relative_distance R)
+module heston_least_squares = least_squares real rand u32_to_real {
+  open (relative_distance real)
 
-  let real (x: f64) = R.from_f64 x
+  let real (x: f64) = real.from_f64 x
 
-  type pricer_ctx = {day_count_fractions: []R.t,
-                     quotes: []{maturity: i32, strike: R.t, vega: R.t, weight: R.t},
-                     gauss_laguerre_coefficients: ([]R.t, []R.t)
+  type pricer_ctx = {day_count_fractions: []real.t,
+                     quotes: []{maturity: i32, strike: real.t, vega: real.t, weight: real.t},
+                     gauss_laguerre_coefficients: ([]real.t, []real.t)
                      }
 
   let pricer ({day_count_fractions, quotes, gauss_laguerre_coefficients}: pricer_ctx) (x: []real): []real =
     let heston_parameters = heston_parameters_from_vector x
-    let prices = price_european_calls_R.price_european_calls
+    let prices = price_european_calls_real.price_european_calls
                  gauss_laguerre_coefficients
                  false (real 1.0) (real 1.0) (real 1.0)
                  heston_parameters
@@ -80,12 +81,12 @@ let run_calibration({today,
                      integral_iterations,
                      variables}: calibration_input): calibration_result real =
   let price_and_vega_of_quote (strike: real) (maturity: date) (quote: real) =
-    (let (price, vega) = price_european_calls_R.bs_call true today (real 1.) strike maturity quote
-     in (price, R.max (real 1e-1) vega))
-  let strike_weight (p: real) (x: real) = R.exp (p *. (R.log x +. real 1.0 -. x))
+    (let (price, vega) = price_european_calls_real.bs_call true today (real 1.) strike maturity quote
+     in (price, real.max (real 1e-1) vega))
+  let strike_weight (p: real) (x: real) = real.exp (p *. (real.log x +. real 1.0 -. x))
   let maturity_weight (x0: real) (gamma: real) (x: real) =
-      (let k = real 1.0 /. (R.exp(gamma *. x0) -. real 1.0)
-       in if x <=. x0 then k *. (R.exp(gamma *. x) -. real 1.0) else real 1.0)
+      (let k = real 1.0 /. (real.exp(gamma *. x0) -. real 1.0)
+       in if x <=. x0 then k *. (real.exp(gamma *. x) -. real 1.0) else real 1.0)
   let weight (strike: real) (mat: date) =
     maturity_weight maturity_weight_x0 maturity_weight_gamma (real (diff_dates today mat)) *.
     strike_weight strike_weight_bandwidth strike
@@ -109,7 +110,7 @@ let run_calibration({today,
             , quotes =
                 quotes_for_ctx
             , gauss_laguerre_coefficients =
-                price_european_calls_R.gauss_laguerre_coefficients integral_iterations }
+                price_european_calls_real.gauss_laguerre_coefficients integral_iterations }
 
   in heston_least_squares.least_squares ctx max_global np variables quotes_for_optimization
 

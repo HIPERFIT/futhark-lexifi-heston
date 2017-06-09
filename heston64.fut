@@ -3,11 +3,11 @@
 -- compiled input @ data_10000_quotes
 -- compiled input @ data_100000_quotes
 
+import "/futlib/random"
 import "/futlib/math"
-import "rand"
 import "heston"
 
-module heston64 = heston f64 random_f64
+module heston64 = heston f64 minstd_rand u32_to_f64
 
 let main (max_global: i32)
          (nb_points: i32)

@@ -1,6 +1,5 @@
 import "/futlib/math"
-
-import "rand"
+import "/futlib/random"
 
 module type distance = {
   type real
@@ -57,7 +56,8 @@ type calibration_result 'real = { parameters: []real,
                                   nb_feval: i32 }
 
 module least_squares (real: real)
-                     (rand: random with t = real.t with rng = random_i32.rng)
+                     (rand: rng_engine with t = u32)
+                     (u32_to_real: convert with from = u32 with to = real.t)
                      (P: pricer with real = real.t) : {
   val fixed_value: P.real -> optimization_variable P.real
   val optimize_value: range P.real -> optimization_variable P.real
@@ -69,6 +69,14 @@ module least_squares (real: real)
 } = {
   type real = real.t
   open real
+
+  module random_i32 = uniform_int_distribution i32 u32 u32_to_i32 rand
+  module random_real = uniform_real_distribution real u32 u32_to_real rand
+
+  let nrand (d: random_real.distribution) (rng: rand.rng) (n: i32) =
+    let rngs = rand.split_rng n rng
+    let (rngs', xs) = unzip (map (\rng -> random_real.rand d rng) rngs)
+    in (rand.join_rng rngs', xs)
 
   let fixed_value (v: real): optimization_variable real =
     (true, v, {lower_bound=real.from_i32 0,
@@ -119,10 +127,10 @@ module least_squares (real: real)
       P.distance quotes (P.pricer pricer_ctx (active_vars vars_to_free_vars variables x))
 
     let bounds = (real.from_i32 0, real.from_i32 1)
-    let rng = rand.rng_from_seed 0x123
+    let rng = rand.rng_from_seed [0x123]
     let rngs = rand.split_rng np rng
-    let (rngs, rss) = unzip (map (\rng -> rand.nrand rng bounds num_free_vars) rngs)
-    let rng = rand.join_rng rngs
+    let (rngs, rss) = unzip (map (\rng -> nrand bounds rng num_free_vars) rngs)
+    let rng = rngs[0]
     let x = (let init_j (lower_bound: real) (upper_bound: real) (r: real) =
                lower_bound + (upper_bound-lower_bound) * r
              let init_i (rs: [num_free_vars]real) = map init_j lower_bounds upper_bounds rs
@@ -135,18 +143,18 @@ module least_squares (real: real)
                  (rng: rand.rng) (i :i32) (x_i: [num_free_vars]real) =
       (-- We have to draw 'to_draw' distinct elements from 'x', and it
        -- can't be 'i'.  We do this with brute-force looping.
-       let (rng,a) = random_i32.rand rng (0,np)
-       let (rng,b) = random_i32.rand rng (0,np)
-       let (rng,c) = random_i32.rand rng (0,np)
-       loop ((rng,a)) = while a i32.== i do random_i32.rand rng (0,np)
-       loop ((rng,b)) = while b i32.== i || b i32.== a do random_i32.rand rng (0,np)
-       loop ((rng,c)) = while c i32.== i || c i32.== a || c i32.== b do random_i32.rand rng (0,np)
-       let (rng,r) = rand.rand rng bounds
+       let (rng,a) = random_i32.rand (0,np) rng
+       let (rng,b) = random_i32.rand (0,np) rng
+       let (rng,c) = random_i32.rand (0,np) rng
+       loop ((rng,a)) = while a i32.== i do random_i32.rand (0,np) rng
+       loop ((rng,b)) = while b i32.== i || b i32.== a do random_i32.rand (0,np) rng
+       loop ((rng,c)) = while c i32.== i || c i32.== a || c i32.== b do random_i32.rand (0,np) rng
+       let (rng,r) = random_real.rand bounds rng
        let x_r1 = unsafe if r <= real.from_fraction 1 2 then x[best_idx] else x[a]
        let x_r2 = unsafe x[b]
        let x_r3 = unsafe x[c]
-       let (rng,j0) = random_i32.rand rng (0,num_free_vars)
-       let (rng,rs) = rand.nrand rng bounds num_free_vars
+       let (rng,j0) = random_i32.rand (0,num_free_vars) rng
+       let (rng,rs) = nrand bounds rng num_free_vars
        let auxs = map (+) x_r1 (map (difw*) (map (-) x_r2 x_r3))
        let v_i = map (\j r lower_bound upper_bound aux x_i_j ->
                       if (j i32.== j0 || r <= cr) && lower_bound <= aux && aux <= upper_bound
@@ -175,10 +183,10 @@ module least_squares (real: real)
            (fx0, best_idx, fx, x)) =
           (rng, np, max_iterations,
            (fx0, best_idx, fx, x))) = while nb_it i32.> 0 && max_global i32.> ncalls && fx0 > target do
-      (let (rng,differential_weight) = rand.rand rng (real.from_fraction 1 2, real.from_i32 1)
+      (let (rng,differential_weight) = random_real.rand (real.from_fraction 1 2, real.from_i32 1) rng
        let rngs = rand.split_rng np rng
        let (rngs, v) = unzip (map (mutation differential_weight best_idx x) rngs (iota np) x)
-       let rng = rand.join_rng rngs
+       let rng = rngs[0]
        let (fx0, best_idx, fx, x) = recombination fx0 best_idx fx x v
        in (rng, ncalls i32.+ np, nb_it i32.- 1,
            (fx0, best_idx, fx, x)))
