@@ -56,7 +56,7 @@ type calibration_result 'real = { parameters: []real,
                                   nb_feval: i32 }
 
 module least_squares (real: real)
-                     (rand: rng_engine with t = u32)
+                     (rand: rng_engine)
                      (P: pricer with real = real.t) : {
   val fixed_value: P.real -> optimization_variable P.real
   val optimize_value: range P.real -> optimization_variable P.real
@@ -69,8 +69,8 @@ module least_squares (real: real)
   type real = real.t
   open real
 
-  module random_i32 = uniform_int_distribution i32 u32 (convert u32 i32) rand
-  module random_real = uniform_real_distribution real u32 (convert u32 real) rand
+  module random_i32 = uniform_int_distribution i32 rand
+  module random_real = uniform_real_distribution real rand
 
   let nrand (d: random_real.distribution) (rng: rand.rng) (n: i32) =
     let rngs = rand.split_rng n rng
