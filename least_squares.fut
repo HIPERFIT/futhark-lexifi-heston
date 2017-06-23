@@ -145,9 +145,9 @@ module least_squares (real: real)
        let (rng,a) = random_i32.rand (0,np) rng
        let (rng,b) = random_i32.rand (0,np) rng
        let (rng,c) = random_i32.rand (0,np) rng
-       loop ((rng,a)) = while a i32.== i do random_i32.rand (0,np) rng
-       loop ((rng,b)) = while b i32.== i || b i32.== a do random_i32.rand (0,np) rng
-       loop ((rng,c)) = while c i32.== i || c i32.== a || c i32.== b do random_i32.rand (0,np) rng
+       let (rng,a) = loop ((rng,a)) while a i32.== i do random_i32.rand (0,np) rng
+       let (rng,b) = loop ((rng,b)) while b i32.== i || b i32.== a do random_i32.rand (0,np) rng
+       let (rng,c) = loop ((rng,c)) while c i32.== i || c i32.== a || c i32.== b do random_i32.rand (0,np) rng
        let (rng,r) = random_real.rand bounds rng
        let x_r1 = unsafe if r <= real.from_fraction 1 2 then x[best_idx] else x[a]
        let x_r2 = unsafe x[b]
@@ -178,10 +178,10 @@ module least_squares (real: real)
     -- We are not counting the numer of invocations of the objective
     -- function quite as in LexiFi's code (they use a closure that
     -- increments a counter), but we should be close.
-    loop ((rng, ncalls, nb_it,
-           (fx0, best_idx, fx, x)) =
-          (rng, np, max_iterations,
-           (fx0, best_idx, fx, x))) = while nb_it i32.> 0 && max_global i32.> ncalls && fx0 > target do
+    let (_,ncalls,nb_it,(_,_,_,x)) =
+      loop ((rng, ncalls, nb_it, (fx0, best_idx, fx, x)) =
+            (rng, np, max_iterations, (fx0, best_idx, fx, x)))
+      while nb_it i32.> 0 && max_global i32.> ncalls && fx0 > target do
       (let (rng,differential_weight) = random_real.rand (real.from_fraction 1 2, real.from_i32 1) rng
        let rngs = rand.split_rng np rng
        let (rngs, v) = unzip (map (mutation differential_weight best_idx x) rngs (iota np) x)
@@ -192,7 +192,7 @@ module least_squares (real: real)
     let x0 = x[best_idx]
     let status = if      fx0 <= target           then target_reached
                  else if max_global i32.< ncalls then max_global_reached
-                 else if nb_it i32.== 0           then max_iterations_reached
+                 else if nb_it i32.== 0          then max_iterations_reached
                  else 1337 -- never reached
     in {x0=x0, f=fx0, nb_feval=ncalls, status=status}
 
